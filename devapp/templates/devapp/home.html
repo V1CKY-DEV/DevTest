@@ -1,0 +1,127 @@
+{% extends 'devapp/base.html' %}
+
+{% block title %}Home - DevTest{% endblock %}
+
+
+
+{% block content %}
+<style>
+    th, td {
+        text-align: left;
+        padding: 12px;
+    }
+    th {
+        background-color: #00d4ff; /* Neon blue background for table headers */
+    }
+    tr:nth-child(even) {
+        background-color: #2c3e50; /* Alternating row color */
+    }
+</style>
+<div class="container">
+    <h1>Upload File</h1>
+    <!-- FilePond file input -->
+    <input type="file" name="filepond" multiple style="background-color: transparent !important;">
+    <div id="summary" class="mt-4"></div>
+
+    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+    <script>
+        // Initialize FilePond
+        const pond = FilePond.create(document.querySelector('input[type="file"]'), {
+            server: {
+                url: 'http://127.0.0.1:8000/', // Adjust URL as needed
+                process: {
+                    url: '/upload/', // Ensure this matches your Django URL pattern
+                    method: 'POST',
+                    withCredentials: false,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}' // Ensure CSRF token is included
+                    }
+                },
+                revert: null
+            },
+            instantUpload: true,
+            acceptedFileTypes: ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            maxFileSize: '2MB'
+        });
+    
+        // Handle FilePond events
+        pond.on('processfile', (error, file) => {
+            if (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Upload Failed',
+                    text: 'There was an error uploading the file. Please try again.',
+                });
+            } else {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Upload Successful',
+                    text: 'We have sent you an email!',
+                }).then(() => {
+                    // Show the summary directly from the POST response
+                    const response = file.serverId ? JSON.parse(file.serverId) : {}; // Adjust this based on your server response
+    
+                    console.log(response); // Debugging line to check the response
+    
+                    if (response && response.summary) {
+                        const summary = response.summary;
+    
+                        // Function to parse the summary into headers and metrics
+                        function parseSummary(summary) {
+                            const rows = summary.trim().split('\n');
+                            const headers = rows[0].split(/\s+/).slice(1); // Get column headers, excluding the first column
+                            const metrics = rows.slice(1).map(row => row.split(/\s+/));
+                            return { headers, metrics };
+                        }
+    
+                        // Function to generate HTML table from headers and metrics
+                        function generateTable(headers, metrics) {
+                            let tableHtml = '<table class="table table-bordered rounded-table">';
+                            
+                            // Create table headers
+                            tableHtml += '<thead><tr><th>Metric</th>';
+                            headers.forEach(header => {
+                                tableHtml += `<th>${header}</th>`;
+                            });
+                            tableHtml += '</tr></thead><tbody>';
+    
+                            // Create table rows
+                            metrics.forEach(row => {
+                                tableHtml += '<tr>';
+                                row.forEach((cell, index) => {
+                                    if (index === 0) {
+                                        tableHtml += `<td>${cell}</td>`;
+                                    } else {
+                                        tableHtml += `<td>${cell || 'N/A'}</td>`;
+                                    }
+                                });
+                                tableHtml += '</tr>';
+                            });
+    
+                            tableHtml += '</tbody></table>';
+                            return tableHtml;
+                        }
+    
+                        // Parsing and generating the table
+                        const { headers, metrics } = parseSummary(summary);
+                        const tableHtml = generateTable(headers, metrics);
+                        document.getElementById('summary').innerHTML = tableHtml;
+                    } else {
+                        document.getElementById('summary').innerHTML = 'No summary available.';
+                    }
+                });
+            }
+        });
+    
+        // Clear summary on new upload
+        pond.on('addfile', () => {
+            document.getElementById('summary').innerHTML = '';
+        });
+    </script>
+</div>
+{% endblock %}
