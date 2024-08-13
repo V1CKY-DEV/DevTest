@@ -45,8 +45,8 @@ You can view a live preview of the application [here](https://burhanfarooq.pytho
 4. **Set up environment variables**:
     Create a `.env` file in the root directory and add the following:
     ```
-    recipient1=recipient1@example.com
-    recipient2=recipient2@example.com
+    recipient1@example.com
+    recipient2@example.com
     ```
 
 5. **Run migrations**:
